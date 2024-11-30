@@ -1,0 +1,6 @@
+.git
+.vscode
+setting.json
+*.exe
+*.mod
+*.sum
