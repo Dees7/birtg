@@ -2,7 +2,6 @@
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -14,11 +13,38 @@ type Settings struct {
 	Token  string `json:"token"`
 	ChatID int64  `json:"chat_id"`
 }
+type Person struct {
+	Login string `json:"login"`
+	Name  string `json:"name"`
+	Day   int    `json:"day"`
+	Month int    `json:"month"`
+}
+
+func getBirthdays() []Person {
+	var people []Person
+
+	jsonFile, err := os.Open("birthdays.json")
+	if err != nil {
+		log.Fatalf("Не удалось открыть файл: %s", err)
+	}
+	defer jsonFile.Close()
+
+	byteValue, err := os.ReadFile("birthdays.json")
+	if err != nil {
+		log.Fatalf("Ошибка при чтении файла: %s", err)
+	}
+
+	err = json.Unmarshal(byteValue, &people)
+	if err != nil {
+		log.Fatalf("Ошибка при парсинге JSON: %s", err)
+	}
+	return people
+}
 
 func main() {
 	// Загружаем настройки
 	var settings Settings
-	//var people []Person
+	var people []Person
 
 	// Открываем JSON-файл
 	jsonFile, err := os.Open("setting.json")
@@ -57,32 +83,30 @@ func main() {
 	chatID := int64(settings.ChatID) // Замените на ID вашего чата
 
 	// Запускаем задачу, которая будет отправлять сообщение каждый день в определенное время
-	scheduleMessage(bot, chatID)
+	people = getBirthdays()
+	scheduleMessage(bot, chatID, people)
 
 	select {} // Бесконечный цикл, чтобы программа не завершилась
 }
 
 // Функция для отправки сообщения по расписанию
-func scheduleMessage(bot *tgbotapi.BotAPI, chatID int64) {
+func scheduleMessage(bot *tgbotapi.BotAPI, chatID int64, people []Person) {
 	go func() {
 		for {
 			// Задаем время для отправки сообщения (например, 9:00 утра каждый день)
-			now := time.Now()
-			next := time.Date(now.Year(), now.Month(), now.Day(), 21, 34, 0, 0, now.Location())
-			if next.Before(now) {
-				next = next.Add(24 * time.Hour)
+			currentTime := time.Now()
+			if currentTime.Hour() == 8 && currentTime.Minute() == 42 {
+				for _, person := range people {
+					if person.Day == currentTime.Day() && person.Month == int(currentTime.Month()) {
+						// Отправляем сообщение
+						msg := tgbotapi.NewMessage(chatID, "С днем рождения, "+string(person.Name)+"! "+string(person.Login))
+						if _, err := bot.Send(msg); err != nil {
+							log.Printf("Ошибка при отправке сообщения: %v", err)
+						}
+					}
+				}
 			}
-
-			// Ждем до нужного времени
-			duration := next.Sub(now)
-			fmt.Printf("Следующее сообщение будет отправлено через: %v\n", duration)
-			time.Sleep(duration)
-
-			// Отправляем сообщение
-			msg := tgbotapi.NewMessage(chatID, "Доброе утро! Это сообщение по расписанию.")
-			if _, err := bot.Send(msg); err != nil {
-				log.Printf("Ошибка при отправке сообщения: %v", err)
-			}
+			time.Sleep(1 * time.Minute)
 		}
 	}()
 }
