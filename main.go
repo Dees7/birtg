@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -12,6 +14,7 @@ import (
 type Settings struct {
 	Token  string `json:"token"`
 	ChatID int64  `json:"chat_id"`
+	Time   string `json:"time"`
 }
 type Person struct {
 	Login string `json:"login"`
@@ -84,18 +87,26 @@ func main() {
 
 	// Запускаем задачу, которая будет отправлять сообщение каждый день в определенное время
 	people = getBirthdays()
-	scheduleMessage(bot, chatID, people)
+
+	// Разделяем строку по символу ":"
+	parts := strings.Split(settings.Time, ":")
+
+	// Преобразуем части строки в числа
+	hours, _ := strconv.Atoi(parts[0])
+	minutes, _ := strconv.Atoi(parts[1])
+
+	scheduleMessage(bot, chatID, people, hours, minutes)
 
 	select {} // Бесконечный цикл, чтобы программа не завершилась
 }
 
 // Функция для отправки сообщения по расписанию
-func scheduleMessage(bot *tgbotapi.BotAPI, chatID int64, people []Person) {
+func scheduleMessage(bot *tgbotapi.BotAPI, chatID int64, people []Person, hours int, minutes int) {
 	go func() {
 		for {
 			// Задаем время для отправки сообщения (например, 9:00 утра каждый день)
 			currentTime := time.Now()
-			if currentTime.Hour() == 8 && currentTime.Minute() == 42 {
+			if currentTime.Hour() == hours && currentTime.Minute() == minutes {
 				for _, person := range people {
 					if person.Day == currentTime.Day() && person.Month == int(currentTime.Month()) {
 						// Отправляем сообщение
